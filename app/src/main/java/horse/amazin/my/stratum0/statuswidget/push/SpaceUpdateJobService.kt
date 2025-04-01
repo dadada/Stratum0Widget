@@ -14,23 +14,29 @@ import horse.amazin.my.stratum0.statuswidget.SpaceStatusData
 import horse.amazin.my.stratum0.statuswidget.interactors.StatusFetcher
 import horse.amazin.my.stratum0.statuswidget.service.Stratum0WidgetProvider
 import timber.log.Timber
+import java.lang.ref.WeakReference
 
 class SpaceUpdateJobService : JobService() {
     private val stratum0StatusFetcher = StatusFetcher()
 
+    private class FetchTask(context: SpaceUpdateJobService, private val params: JobParameters): AsyncTask<Void,Void, SpaceStatusData>() {
+
+        private val context: WeakReference<SpaceUpdateJobService> = WeakReference(context)
+
+        override fun doInBackground(vararg p0: Void?): SpaceStatusData {
+            return context.get()!!.stratum0StatusFetcher.fetch()
+        }
+
+        override fun onPostExecute(result: SpaceStatusData) {
+            Stratum0WidgetProvider.sendRefreshBroadcast(context.get()!!.applicationContext, result)
+
+            val isSuccessful = result.status != SpaceStatus.ERROR
+            context.get()!!.jobFinished(params, !isSuccessful)
+        }
+    }
+
     override fun onStartJob(params: JobParameters): Boolean {
-        object : AsyncTask<Void,Void, SpaceStatusData>() {
-            override fun doInBackground(vararg p0: Void?): SpaceStatusData {
-                return stratum0StatusFetcher.fetch()
-            }
-
-            override fun onPostExecute(result: SpaceStatusData) {
-                Stratum0WidgetProvider.sendRefreshBroadcast(applicationContext, result)
-
-                val isSuccessful = result.status != SpaceStatus.ERROR
-                jobFinished(params, !isSuccessful)
-            }
-        }.execute()
+        FetchTask(this, params).execute()
 
         return true
     }

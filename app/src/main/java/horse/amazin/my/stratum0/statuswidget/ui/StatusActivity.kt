@@ -24,6 +24,7 @@ import horse.amazin.my.stratum0.statuswidget.interactors.StatusFetcher
 import horse.amazin.my.stratum0.statuswidget.service.DoorUnlockService
 import horse.amazin.my.stratum0.statuswidget.service.StatusChangerService
 import horse.amazin.my.stratum0.statuswidget.service.Stratum0WidgetProvider
+import java.lang.ref.WeakReference
 
 
 class StatusActivity : Activity() {
@@ -473,16 +474,22 @@ class StatusActivity : Activity() {
         refreshStatus()
     }
 
-    private fun refreshStatus() {
-        object : AsyncTask<Void, Void, SpaceStatusData>() {
-            override fun doInBackground(vararg p0: Void?): SpaceStatusData {
-                return stratum0StatusFetcher.fetch(700)
-            }
+    private class RefreshTask(context: StatusActivity) : AsyncTask<Void, Void, SpaceStatusData>() {
 
-            override fun onPostExecute(result: SpaceStatusData) {
-                onPostSpaceStatusUpdate(result)
-            }
-        }.execute()
+        private val activityReference: WeakReference<StatusActivity> = WeakReference(context)
+
+        override fun doInBackground(vararg p0: Void?): SpaceStatusData {
+            return activityReference.get()?.stratum0StatusFetcher?.fetch(700)!!
+        }
+
+        override fun onPostExecute(result: SpaceStatusData) {
+            activityReference.get()?.onPostSpaceStatusUpdate(result)
+        }
+    }
+
+    private fun refreshStatus() {
+
+        RefreshTask(this).execute()
     }
 
     fun onPostSpaceStatusUpdate(statusData: SpaceStatusData) {
