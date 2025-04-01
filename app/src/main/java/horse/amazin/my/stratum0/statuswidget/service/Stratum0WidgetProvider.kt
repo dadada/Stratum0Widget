@@ -21,6 +21,7 @@ import horse.amazin.my.stratum0.statuswidget.interactors.StatusFetcher
 import horse.amazin.my.stratum0.statuswidget.push.SpaceUpdateJobService
 import horse.amazin.my.stratum0.statuswidget.push.Stratum0StatusUpdater
 import horse.amazin.my.stratum0.statuswidget.ui.StatusActivity
+import java.lang.ref.WeakReference
 
 val FLAG_IMMUTABLE_COMPAT = when {
     Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> PendingIntent.FLAG_IMMUTABLE

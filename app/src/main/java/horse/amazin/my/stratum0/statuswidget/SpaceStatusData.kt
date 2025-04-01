@@ -2,7 +2,7 @@ package horse.amazin.my.stratum0.statuswidget
 
 
 import android.os.Parcelable
-import kotlinx.android.parcel.Parcelize
+import kotlinx.parcelize.Parcelize
 import java.util.*
 
 enum class SpaceStatus {

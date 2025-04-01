@@ -17,13 +17,13 @@ import androidx.annotation.ColorRes
 import horse.amazin.my.stratum0.statuswidget.R
 import horse.amazin.my.stratum0.statuswidget.SpaceStatus
 import horse.amazin.my.stratum0.statuswidget.SpaceStatusData
+import horse.amazin.my.stratum0.statuswidget.databinding.StatusLayoutBinding
 import horse.amazin.my.stratum0.statuswidget.interactors.S0PermissionManager
 import horse.amazin.my.stratum0.statuswidget.interactors.SshKeyStorage
 import horse.amazin.my.stratum0.statuswidget.interactors.StatusFetcher
 import horse.amazin.my.stratum0.statuswidget.service.DoorUnlockService
 import horse.amazin.my.stratum0.statuswidget.service.StatusChangerService
 import horse.amazin.my.stratum0.statuswidget.service.Stratum0WidgetProvider
-import kotlinx.android.synthetic.main.status_layout.*
 
 
 class StatusActivity : Activity() {
@@ -41,6 +41,8 @@ class StatusActivity : Activity() {
     private lateinit var lastStatusData: SpaceStatusData
 
     private lateinit var sshKeyStorage: SshKeyStorage
+
+    private lateinit var binding: StatusLayoutBinding
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -79,7 +81,7 @@ class StatusActivity : Activity() {
 
     private fun requireBeenInSpaceOrStartFadeout(pressedButtonId: Int) {
         if (!S0PermissionManager.maySetSpaceStatus(applicationContext)) {
-            animator.displayedChildId = R.id.layout_never_in_space
+            binding.animator.displayedChildId = R.id.layout_never_in_space
         } else {
             val action = when (pressedButtonId) {
                 R.id.buttonUnlock -> ButtonActionType.UNLOCK
@@ -94,10 +96,10 @@ class StatusActivity : Activity() {
     }
 
     private fun onClickIamInSpace() {
-        if (S0PermissionManager.isS0WifiPwd(textPwd.text.toString().toByteArray())) {
+        if (S0PermissionManager.isS0WifiPwd(binding.textPwd.text.toString().toByteArray())) {
             S0PermissionManager.allowSetSpaceStatus(applicationContext)
             Toast.makeText(this, R.string.toast_pwd_ok, Toast.LENGTH_SHORT).show()
-            animator.displayedChildId = R.id.layout_set_status
+            binding.animator.displayedChildId = R.id.layout_set_status
         } else {
             Toast.makeText(this, R.string.toast_pwd_bad, Toast.LENGTH_SHORT).show()
         }
@@ -151,19 +153,19 @@ class StatusActivity : Activity() {
             }
         })
 
-        currentStatusText.startAnimation(fadeOutAnim)
-        statusIcon.startAnimation(fadeOutAnim)
+        binding.currentStatusText.startAnimation(fadeOutAnim)
+        binding.statusIcon.startAnimation(fadeOutAnim)
 
-        statusProgress.visibility = View.VISIBLE
+        binding.statusProgress.visibility = View.VISIBLE
     }
 
     private fun abortFadeoutAnimation() {
         if (holdingButton) {
             holdingButton = false
 
-            currentStatusText.clearAnimation()
-            statusIcon.clearAnimation()
-            statusProgress.visibility = View.GONE
+            binding.currentStatusText.clearAnimation()
+            binding.statusIcon.clearAnimation()
+            binding.statusProgress.visibility = View.GONE
 
             val timeSinceButtonDown = SystemClock.elapsedRealtime() - (lastButtonDown?:0L)
             if (timeSinceButtonDown < PRESS_LONGER_HINT_TIMEOUT) {
@@ -179,30 +181,34 @@ class StatusActivity : Activity() {
             SpaceStatus.OPEN -> {
                 if (isCloseElseInherit) {
                     StatusChangerService.triggerStatusUpdate(applicationContext, null)
-                    currentStatusTextLoading.text = getString(R.string.status_progress_closing)
+                    binding.currentStatusTextLoading.text =
+                        getString(R.string.status_progress_closing)
                 } else {
                     StatusChangerService.triggerStatusUpdate(applicationContext, username)
-                    currentStatusTextLoading.text = getString(R.string.status_progress_inheriting)
+                    binding.currentStatusTextLoading.text =
+                        getString(R.string.status_progress_inheriting)
                 }
             }
+
             SpaceStatus.CLOSED -> {
                 StatusChangerService.triggerStatusUpdate(applicationContext, username)
-                currentStatusTextLoading.text = getString(R.string.status_progress_opening)
+                binding.currentStatusTextLoading.text = getString(R.string.status_progress_opening)
             }
+
             SpaceStatus.UPDATING,
             SpaceStatus.ERROR -> {
                 throw IllegalStateException()
             }
         }
 
-        currentStatusTextLoading.visibility = View.VISIBLE
+        binding.currentStatusTextLoading.visibility = View.VISIBLE
     }
 
     private fun performDoorLockOperation() {
         triggeredDoorOperation = true
 
-        currentStatusTextLoading.text = getString(R.string.status_progress_lock)
-        currentStatusTextLoading.visibility = View.VISIBLE
+        binding.currentStatusTextLoading.text = getString(R.string.status_progress_lock)
+        binding.currentStatusTextLoading.visibility = View.VISIBLE
 
         DoorUnlockService.triggerDoorLock(applicationContext)
     }
@@ -210,8 +216,8 @@ class StatusActivity : Activity() {
     private fun performDoorUnlockOperation() {
         triggeredDoorOperation = true
 
-        currentStatusTextLoading.text = getString(R.string.status_progress_unlock)
-        currentStatusTextLoading.visibility = View.VISIBLE
+        binding.currentStatusTextLoading.text = getString(R.string.status_progress_unlock)
+        binding.currentStatusTextLoading.visibility = View.VISIBLE
 
         DoorUnlockService.triggerDoorUnlock(applicationContext)
     }
@@ -219,39 +225,41 @@ class StatusActivity : Activity() {
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        binding = StatusLayoutBinding.inflate(layoutInflater)
+
         overridePendingTransition(0, 0)
 
         window.requestFeature(Window.FEATURE_NO_TITLE)
         setFinishOnTouchOutside(true)
-        setContentView(R.layout.status_layout)
+
+        val view = binding.root
+        setContentView(view)
 
         prefs = getSharedPreferences("preferences", Context.MODE_PRIVATE)
         sshKeyStorage = SshKeyStorage(applicationContext)
 
-        buttonOpen.setOnTouchListener(onTouchListener)
-        buttonInherit.setOnTouchListener(onTouchListener)
-        buttonClose.setOnTouchListener(onTouchListener)
-        buttonUnlock.setOnTouchListener(onTouchListener)
-        buttonLock.setOnTouchListener(onTouchListener)
-        buttonRefresh.setOnClickListener { onClickRefresh() }
-        buttonIAmInSpace.setOnClickListener { onClickIamInSpace() }
-
-        findViewById<View>(R.id.button_settings).setOnClickListener { onClickSettings() }
-        findViewById<View>(R.id.button_settings_cancel).setOnClickListener { onClickSettingsCancel() }
-        findViewById<View>(R.id.button_settings_save).setOnClickListener { onClickSettingsSave() }
-        findViewById<View>(R.id.button_error_back).setOnClickListener { onClickBack() }
-        findViewById<View>(R.id.button_permission_back).setOnClickListener { onClickBack() }
-        findViewById<View>(R.id.button_settings_ssh_save).setOnClickListener { onClickSettingsSshSave() }
-        findViewById<View>(R.id.button_settings_ssh_cancel).setOnClickListener { onClickSettingsSshCancel() }
-
-        buttonUnlock.isEnabled = sshKeyStorage.hasKey()
-        buttonLock.isEnabled = sshKeyStorage.hasKey()
-
-        settingsSshImport.setOnClickListener { onClickSshImport() }
-
+        with(binding) {
+            buttonOpen.setOnTouchListener(onTouchListener)
+            buttonInherit.setOnTouchListener(onTouchListener)
+            buttonClose.setOnTouchListener(onTouchListener)
+            buttonUnlock.setOnTouchListener(onTouchListener)
+            buttonLock.setOnTouchListener(onTouchListener)
+            buttonRefresh.setOnClickListener { onClickRefresh() }
+            buttonIAmInSpace.setOnClickListener { onClickIamInSpace() }
+            buttonSettings.setOnClickListener { onClickSettings() }
+            buttonSettingsCancel.setOnClickListener { onClickSettingsCancel() }
+            buttonSettingsSave.setOnClickListener { onClickSettingsSave() }
+            buttonErrorBack.setOnClickListener { onClickBack() }
+            buttonPermissionBack.setOnClickListener { onClickBack() }
+            buttonSettingsSshSave.setOnClickListener { onClickSettingsSshSave() }
+            buttonSettingsSshCancel.setOnClickListener { onClickSettingsSshCancel() }
+            buttonUnlock.isEnabled = sshKeyStorage.hasKey()
+            buttonLock.isEnabled = sshKeyStorage.hasKey()
+            binding.settingsSshImport.setOnClickListener { onClickSshImport() }
+        }
         username = prefs.getString("username", "")!!
 
-        animator.displayedChildId = R.id.layout_progress
+        binding.animator.displayedChildId = R.id.layout_progress
 
         refreshStatus()
     }
@@ -329,33 +337,33 @@ class StatusActivity : Activity() {
     private var candidateKeyData: String? = null
 
     private fun displayPassphraseInput(keyData: String) {
-        settingsSshPass.setText("")
+        binding.settingsSshPass.setText("")
 
         candidateKeyData = keyData
 
-        animator.displayedChildId = R.id.layout_ssh_password
+        binding.animator.displayedChildId = R.id.layout_ssh_password
     }
 
     private fun onClickSettingsSshSave() {
-        val passphrase = settingsSshPass.text.toString()
+        val passphrase = binding.settingsSshPass.text.toString()
 
         if (sshKeyStorage.isMatchingPassword(candidateKeyData!!, passphrase)) {
             sshKeyStorage.setKey(candidateKeyData!!, passphrase)
             candidateKeyData = null
 
             updateSshStatus()
-            animator.displayedChildId = R.id.layout_settings
+            binding.animator.displayedChildId = R.id.layout_settings
         } else {
-            settingsSshPass.error = getString(R.string.settings_error_bad_password)
+            binding.settingsSshPass.error = getString(R.string.settings_error_bad_password)
         }
     }
 
     private fun onClickSettingsSshCancel() {
         candidateKeyData = null
-        settingsSshPass.setText("")
+        binding.settingsSshPass.setText("")
 
         updateSshStatus()
-        animator.displayedChildId = R.id.layout_settings
+        binding.animator.displayedChildId = R.id.layout_settings
     }
 
     private fun readSshKeyData(uri: Uri): String? {
@@ -363,13 +371,13 @@ class StatusActivity : Activity() {
     }
 
     private fun onClickSettingsSave() {
-        val username = settingsEditName.text.toString()
+        val username = binding.settingsEditName.text.toString()
         if (username.length < 3) {
-            settingsEditName.error = getString(R.string.settings_error_nick_short)
+            binding.settingsEditName.error = getString(R.string.settings_error_nick_short)
             return
         }
         if (!NICK_PATTERN.matches(username)) {
-            settingsEditName.error = getString(R.string.settings_error_nick_pattern)
+            binding.settingsEditName.error = getString(R.string.settings_error_nick_pattern)
             return
         }
 
@@ -378,13 +386,13 @@ class StatusActivity : Activity() {
 
         hideKeyboard()
 
-        animator.displayedChildId = R.id.layout_progress
+        binding.animator.displayedChildId = R.id.layout_progress
         refreshStatus()
     }
 
     private fun onClickSettingsCancel() {
         hideKeyboard()
-        animator.displayedChildId = R.id.layout_set_status
+        binding.animator.displayedChildId = R.id.layout_set_status
     }
 
     private fun onClickSettings() {
@@ -392,11 +400,12 @@ class StatusActivity : Activity() {
             return
         }
 
-        animator.displayedChildId = R.id.layout_settings
-        settingsEditName.setText(username)
-        settingsEditName.setSelection(username.length)
-        settingsEditName.requestFocus()
-        showKeyboard(settingsEditName)
+        binding.animator.displayedChildId = R.id.layout_settings
+        binding.settingsEditName.setText(username)
+        binding.settingsEditName.setSelection(username.length)
+        binding.settingsEditName.requestFocus()
+
+        showKeyboard(binding.settingsEditName)
 
         updateSshStatus()
     }
@@ -407,13 +416,13 @@ class StatusActivity : Activity() {
 
     private fun updateSshStatus() {
         if (sshKeyStorage.hasKey()) {
-            settingsSshStatus.text = getString(R.string.settings_ssh_status_ok)
+            binding.settingsSshStatus.text = getString(R.string.settings_ssh_status_ok)
         } else {
-            settingsSshStatus.text = getString(R.string.settings_ssh_status_unconfigured)
+            binding.settingsSshStatus.text = getString(R.string.settings_ssh_status_unconfigured)
         }
 
-        buttonUnlock.isEnabled = sshKeyStorage.hasKey()
-        buttonLock.isEnabled = sshKeyStorage.hasKey()
+        binding.buttonUnlock.isEnabled = sshKeyStorage.hasKey()
+        binding.buttonLock.isEnabled = sshKeyStorage.hasKey()
     }
 
     override fun onStart() {
@@ -435,13 +444,14 @@ class StatusActivity : Activity() {
     private fun onDoorUnlockStatusEvent(errorRes: Int?) {
         if (errorRes == null) {
             val fadeInAnim = AnimationUtils.loadAnimation(this, R.anim.holding_fade_in)
-            unlockedOkIcon.startAnimation(fadeInAnim)
-            currentStatusTextUnlocked.startAnimation(fadeInAnim)
-            unlockedOkIcon.visibility = View.VISIBLE
-            currentStatusTextUnlocked.visibility = View.VISIBLE
 
-            statusProgress.visibility = View.GONE
-            currentStatusTextLoading.visibility = View.GONE
+            binding.unlockedOkIcon.startAnimation(fadeInAnim)
+            binding.currentStatusTextUnlocked.startAnimation(fadeInAnim)
+            binding.unlockedOkIcon.visibility = View.VISIBLE
+            binding.currentStatusTextUnlocked.visibility = View.VISIBLE
+
+            binding.statusProgress.visibility = View.GONE
+            binding.currentStatusTextLoading.visibility = View.GONE
 
             Handler().postDelayed({
                 triggeredDoorOperation = false
@@ -450,16 +460,16 @@ class StatusActivity : Activity() {
         } else {
             triggeredDoorOperation = false
 
-            statusIcon.visibility = View.INVISIBLE
-            currentStatusText.visibility = View.INVISIBLE
+            binding.statusIcon.visibility = View.INVISIBLE
+            binding.currentStatusText.visibility = View.INVISIBLE
 
-            textUnlockError.text = getText(errorRes)
-            animator.displayedChildId = R.id.layout_unlock_error
+            binding.textUnlockError.text = getText(errorRes)
+            binding.animator.displayedChildId = R.id.layout_unlock_error
         }
     }
 
     private fun onClickRefresh() {
-        animator.displayedChildId = R.id.layout_progress
+        binding.animator.displayedChildId = R.id.layout_progress
         refreshStatus()
     }
 
@@ -492,49 +502,49 @@ class StatusActivity : Activity() {
     private fun displayStatus(animate: Boolean) {
         hideKeyboard()
 
-        animator.displayedChildId = R.id.layout_set_status
+        binding.animator.displayedChildId = R.id.layout_set_status
 
-        statusIcon.visibility = View.VISIBLE
-        currentStatusText.visibility = View.VISIBLE
+        binding.statusIcon.visibility = View.VISIBLE
+        binding.currentStatusText.visibility = View.VISIBLE
 
         val statusText: String
         @ColorRes val statusColor: Int
         when (lastStatusData.status) {
             SpaceStatus.UPDATING,
             SpaceStatus.ERROR -> {
-                buttonClose.visibility = View.GONE
-                buttonInherit.visibility = View.GONE
-                buttonOpen.visibility = View.GONE
-                buttonLock.visibility = View.GONE
-                buttonUnlock.visibility = View.GONE
-                buttonRefresh.visibility = View.VISIBLE
+                binding.buttonClose.visibility = View.GONE
+                binding.buttonInherit.visibility = View.GONE
+                binding.buttonOpen.visibility = View.GONE
+                binding.buttonLock.visibility = View.GONE
+                binding.buttonUnlock.visibility = View.GONE
+                binding.buttonRefresh.visibility = View.VISIBLE
 
                 statusText = getString(R.string.status_error)
                 statusColor = R.color.status_unknown
             }
 
             SpaceStatus.CLOSED -> {
-                buttonClose.visibility = View.GONE
-                buttonInherit.visibility = View.GONE
-                buttonOpen.visibility = View.VISIBLE
-                buttonLock.visibility = View.VISIBLE
-                buttonUnlock.visibility = View.GONE
+                binding.buttonClose.visibility = View.GONE
+                binding.buttonInherit.visibility = View.GONE
+                binding.buttonOpen.visibility = View.VISIBLE
+                binding.buttonLock.visibility = View.VISIBLE
+                binding.buttonUnlock.visibility = View.GONE
 
                 statusText = getString(R.string.status_closed)
                 statusColor = R.color.status_closed
             }
 
             SpaceStatus.OPEN -> {
-                buttonOpen.visibility = View.GONE
-                buttonLock.visibility = View.GONE
-                buttonUnlock.visibility = View.VISIBLE
+                binding.buttonOpen.visibility = View.GONE
+                binding.buttonLock.visibility = View.GONE
+                binding.buttonUnlock.visibility = View.VISIBLE
 
                 if (username == lastStatusData.openedBy) {
-                    buttonInherit.visibility = View.GONE
-                    buttonClose.visibility = View.VISIBLE
+                    binding.buttonInherit.visibility = View.GONE
+                    binding.buttonClose.visibility = View.VISIBLE
                 } else {
-                    buttonInherit.visibility = View.VISIBLE
-                    buttonClose.visibility = View.VISIBLE
+                    binding.buttonInherit.visibility = View.VISIBLE
+                    binding.buttonClose.visibility = View.VISIBLE
                 }
 
                 val timestamp = lastStatusData.since!!.time.time
@@ -545,30 +555,30 @@ class StatusActivity : Activity() {
             }
         }
 
-        currentStatusText.text = statusText
+        binding.currentStatusText.text = statusText
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            statusIconBackground.setColorFilter(resources.getColor(statusColor, null))
+            binding.statusIconBackground.setColorFilter(resources.getColor(statusColor, null))
         } else {
             @Suppress("DEPRECATION")
-            statusIconBackground.setColorFilter(resources.getColor(statusColor))
+            binding.statusIconBackground.setColorFilter(resources.getColor(statusColor))
         }
 
         if (animate) {
             val fadeInAnim = AnimationUtils.loadAnimation(this, R.anim.holding_fade_in)
-            statusIcon.startAnimation(fadeInAnim)
-            currentStatusText.startAnimation(fadeInAnim)
+            binding.statusIcon.startAnimation(fadeInAnim)
+            binding.currentStatusText.startAnimation(fadeInAnim)
         } else {
-            statusIcon.clearAnimation()
-            currentStatusText.clearAnimation()
+            binding.statusIcon.clearAnimation()
+            binding.currentStatusText.clearAnimation()
         }
 
-        currentStatusTextLoading.visibility = View.GONE
-        statusProgress.visibility = View.GONE
+        binding.currentStatusTextLoading.visibility = View.GONE
+        binding.statusProgress.visibility = View.GONE
 
-        currentStatusTextUnlocked.clearAnimation()
-        unlockedOkIcon.clearAnimation()
-        currentStatusTextUnlocked.visibility = View.GONE
-        unlockedOkIcon.visibility = View.GONE
+        binding.currentStatusTextUnlocked.clearAnimation()
+        binding.unlockedOkIcon.clearAnimation()
+        binding.currentStatusTextUnlocked.visibility = View.GONE
+        binding.unlockedOkIcon.visibility = View.GONE
     }
 
     private fun getReadableTime(timestamp: Long): String {

@@ -2,7 +2,6 @@ package horse.amazin.my.stratum0.statuswidget
 
 
 import android.app.Application
-import net.schmizz.sshj.common.SecurityUtils
 
 import timber.log.Timber
 import timber.log.Timber.DebugTree
