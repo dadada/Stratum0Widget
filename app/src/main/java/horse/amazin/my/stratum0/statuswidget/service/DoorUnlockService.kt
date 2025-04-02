@@ -9,7 +9,13 @@ import horse.amazin.my.stratum0.statuswidget.BuildConfig
 import horse.amazin.my.stratum0.statuswidget.R
 import horse.amazin.my.stratum0.statuswidget.interactors.SshInteractor
 import horse.amazin.my.stratum0.statuswidget.interactors.SshKeyStorage
+import horse.amazin.my.stratum0.statuswidget.ui.StatusActivity.Location
 import timber.log.Timber
+
+private const val EXTRA_LOCATION = "location"
+
+const val UPPER_LOCATION = "upper"
+const val LOWER_LOCATION = "lower"
 
 class DoorUnlockService : IntentService("Space Door Service") {
     private lateinit var sshKeyStorage: SshKeyStorage
@@ -26,13 +32,16 @@ class DoorUnlockService : IntentService("Space Door Service") {
             return
         }
 
+        val location = intent.extras?.getString(EXTRA_LOCATION)
+
         when (intent.action) {
-            ACTION_LOCK -> sshLoginOperation("zu")
-            ACTION_UNLOCK -> sshLoginOperation("auf")
+            ACTION_LOCK -> sshLoginOperation("zu", location)
+            ACTION_UNLOCK -> sshLoginOperation("auf", location)
         }
     }
 
-    private fun sshLoginOperation(sshUser: String) {
+    private fun sshLoginOperation(sshUser: String, location: String?) {
+        val server = findHostForLocation(location)
         val startRealtime = SystemClock.elapsedRealtime()
 
         val error: Int? =
@@ -44,7 +53,7 @@ class DoorUnlockService : IntentService("Space Door Service") {
                 val sshPrivateKey = sshKeyStorage.getKey()
                 val sshPassword = sshKeyStorage.getPassword()
                 try {
-                    s0SshInteractor.performSshLogin(sshPrivateKey, sshPassword, sshUser)
+                    s0SshInteractor.performSshLogin(sshPrivateKey, sshPassword, sshUser, server)
                 } catch (e: Exception) {
                     Timber.e(e, "Unknown error during connection attempt!")
                     R.string.ssh_error_unknown
@@ -62,6 +71,15 @@ class DoorUnlockService : IntentService("Space Door Service") {
             sendUnlockStatusBroadcastOk()
         }
     }
+
+    private fun findHostForLocation(location: String?): String =
+        if (BuildConfig.DEBUG) "192.168.178.21" else {
+            when(location) {
+                UPPER_LOCATION -> "" // TODO host to be determined yet
+                LOWER_LOCATION -> "basilisk"
+                else -> "basilisk"
+            }
+        }
 
     private fun sendUnlockStatusBroadcastError(@StringRes errResId: Int) {
         sendUnlockStatusBroadcast(false, errResId)
@@ -92,18 +110,30 @@ class DoorUnlockService : IntentService("Space Door Service") {
 
         const val MIN_UNLOCK_MS = 500L
 
-        fun triggerDoorLock(context: Context) {
+        fun triggerDoorLock(context: Context, location: Location) {
             val intent = Intent(context, DoorUnlockService::class.java)
             intent.`package` = BuildConfig.APPLICATION_ID
             intent.action = ACTION_LOCK
+            putLocationExtra(location, intent)
             context.startService(intent)
         }
 
-        fun triggerDoorUnlock(context: Context) {
+        fun triggerDoorUnlock(context: Context, location: Location) {
             val intent = Intent(context, DoorUnlockService::class.java)
             intent.`package` = BuildConfig.APPLICATION_ID
             intent.action = ACTION_UNLOCK
+            putLocationExtra(location, intent)
             context.startService(intent)
+        }
+
+        private fun putLocationExtra(
+            location: Location,
+            intent: Intent
+        ) {
+            when (location) {
+                Location.UPPER -> intent.extras?.putString(EXTRA_LOCATION, UPPER_LOCATION)
+                Location.LOWER -> intent.extras?.putString(EXTRA_LOCATION, LOWER_LOCATION)
+            }
         }
     }
 

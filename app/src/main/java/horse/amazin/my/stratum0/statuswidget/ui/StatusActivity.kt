@@ -22,8 +22,10 @@ import horse.amazin.my.stratum0.statuswidget.interactors.S0PermissionManager
 import horse.amazin.my.stratum0.statuswidget.interactors.SshKeyStorage
 import horse.amazin.my.stratum0.statuswidget.interactors.StatusFetcher
 import horse.amazin.my.stratum0.statuswidget.service.DoorUnlockService
+import horse.amazin.my.stratum0.statuswidget.service.LOWER_LOCATION
 import horse.amazin.my.stratum0.statuswidget.service.StatusChangerService
 import horse.amazin.my.stratum0.statuswidget.service.Stratum0WidgetProvider
+import horse.amazin.my.stratum0.statuswidget.service.UPPER_LOCATION
 import java.lang.ref.WeakReference
 
 
@@ -35,15 +37,12 @@ class StatusActivity : Activity() {
     }
 
     private val stratum0StatusFetcher = StatusFetcher()
-
     private lateinit var prefs: SharedPreferences
-
     private lateinit var username: String
     private lateinit var lastStatusData: SpaceStatusData
-
     private lateinit var sshKeyStorage: SshKeyStorage
-
     private lateinit var binding: StatusLayoutBinding
+    private var unlockAction: Boolean = false
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -85,14 +84,29 @@ class StatusActivity : Activity() {
             binding.animator.displayedChildId = R.id.layout_never_in_space
         } else {
             val action = when (pressedButtonId) {
+                R.id.button_up_space -> if (unlockAction) {
+                    ButtonActionType.UNLOCK
+                } else {
+                    ButtonActionType.LOCK
+                }
+                R.id.button_down_space -> if (unlockAction) {
+                    ButtonActionType.UNLOCK
+                } else {
+                    ButtonActionType.LOCK
+                }
                 R.id.buttonUnlock -> ButtonActionType.UNLOCK
-                R.id.buttonLock -> ButtonActionType.LOCK
+                R.id.buttonLock-> ButtonActionType.LOCK
                 R.id.buttonClose -> ButtonActionType.CLOSE
                 R.id.buttonOpen -> ButtonActionType.OPEN
                 R.id.buttonInherit -> ButtonActionType.INHERIT
                 else -> throw java.lang.IllegalArgumentException("Unknown button!")
             }
-            startFadeoutAnimation(action)
+            val location = when (pressedButtonId) {
+                R.id.button_up_space -> Location.UPPER
+                R.id.button_down_space -> Location.LOWER
+                else -> null
+            }
+            startFadeoutAnimation(action, location)
         }
     }
 
@@ -112,6 +126,11 @@ class StatusActivity : Activity() {
 
     private var lastButtonDown: Long? = null
 
+    enum class Location {
+        UPPER,
+        LOWER
+    }
+
     enum class ButtonActionType {
         LOCK, UNLOCK, OPEN, CLOSE, INHERIT;
 
@@ -119,7 +138,7 @@ class StatusActivity : Activity() {
             get() = this == LOCK || this == UNLOCK
     }
 
-    private fun startFadeoutAnimation(actionType: ButtonActionType) {
+    private fun startFadeoutAnimation(actionType: ButtonActionType, location: Location? = null) {
         if (holdingButton || triggeredUpdate || triggeredDoorOperation) {
             return
         }
@@ -139,8 +158,18 @@ class StatusActivity : Activity() {
                 if (holdingButton) {
                     holdingButton = false
                     when (actionType) {
-                        ButtonActionType.LOCK -> performDoorLockOperation()
-                        ButtonActionType.UNLOCK -> performDoorUnlockOperation()
+                        ButtonActionType.LOCK -> if (location != null) {
+                            performDoorLockOperation(location)
+                        } else {
+                            resetSelectLocationView()
+                            displayStatus(true)
+                        }
+                        ButtonActionType.UNLOCK -> if (location != null) {
+                            performDoorLockOperation(location)
+                        } else {
+                            resetSelectLocationView()
+                            displayStatus(true)
+                        }
                         ButtonActionType.CLOSE -> performSpaceStatusOperation(true)
                         ButtonActionType.INHERIT, ButtonActionType.OPEN -> performSpaceStatusOperation(false)
                     }
@@ -154,16 +183,28 @@ class StatusActivity : Activity() {
             }
         })
 
-        binding.currentStatusText.startAnimation(fadeOutAnim)
-        binding.statusIcon.startAnimation(fadeOutAnim)
+        when (actionType) {
+            ButtonActionType.LOCK, ButtonActionType.UNLOCK -> {
+                binding.textSelectLocation.startAnimation(fadeOutAnim)
+                binding.statusUnlockProgress.visibility = View.VISIBLE
+            }
+            ButtonActionType.OPEN, ButtonActionType.CLOSE, ButtonActionType.INHERIT -> {
+                binding.currentStatusText.startAnimation(fadeOutAnim)
+                binding.statusIcon.startAnimation(fadeOutAnim)
+                binding.statusProgress.visibility = View.VISIBLE
+            }
+        }
+    }
 
-        binding.statusProgress.visibility = View.VISIBLE
+    private fun performLocationSelection() {
+        binding.animator.displayedChildId = R.id.layout_select_location
     }
 
     private fun abortFadeoutAnimation() {
         if (holdingButton) {
             holdingButton = false
 
+            resetSelectLocationView()
             binding.currentStatusText.clearAnimation()
             binding.statusIcon.clearAnimation()
             binding.statusProgress.visibility = View.GONE
@@ -205,22 +246,22 @@ class StatusActivity : Activity() {
         binding.currentStatusTextLoading.visibility = View.VISIBLE
     }
 
-    private fun performDoorLockOperation() {
+    private fun performDoorLockOperation(location: Location) {
         triggeredDoorOperation = true
 
         binding.currentStatusTextLoading.text = getString(R.string.status_progress_lock)
         binding.currentStatusTextLoading.visibility = View.VISIBLE
 
-        DoorUnlockService.triggerDoorLock(applicationContext)
+        DoorUnlockService.triggerDoorLock(applicationContext, location)
     }
 
-    private fun performDoorUnlockOperation() {
+    private fun performDoorUnlockOperation(location: Location) {
         triggeredDoorOperation = true
 
         binding.currentStatusTextLoading.text = getString(R.string.status_progress_unlock)
         binding.currentStatusTextLoading.visibility = View.VISIBLE
 
-        DoorUnlockService.triggerDoorUnlock(applicationContext)
+        DoorUnlockService.triggerDoorUnlock(applicationContext, location)
     }
 
     public override fun onCreate(savedInstanceState: Bundle?) {
@@ -243,8 +284,14 @@ class StatusActivity : Activity() {
             buttonOpen.setOnTouchListener(onTouchListener)
             buttonInherit.setOnTouchListener(onTouchListener)
             buttonClose.setOnTouchListener(onTouchListener)
-            buttonUnlock.setOnTouchListener(onTouchListener)
-            buttonLock.setOnTouchListener(onTouchListener)
+            buttonUnlock.setOnClickListener {
+                unlockAction = true
+                performLocationSelection()
+            }
+            buttonLock.setOnClickListener {
+                unlockAction = false
+                performLocationSelection()
+            }
             buttonRefresh.setOnClickListener { onClickRefresh() }
             buttonIAmInSpace.setOnClickListener { onClickIamInSpace() }
             buttonSettings.setOnClickListener { onClickSettings() }
@@ -256,13 +303,22 @@ class StatusActivity : Activity() {
             buttonSettingsSshCancel.setOnClickListener { onClickSettingsSshCancel() }
             buttonUnlock.isEnabled = sshKeyStorage.hasKey()
             buttonLock.isEnabled = sshKeyStorage.hasKey()
-            binding.settingsSshImport.setOnClickListener { onClickSshImport() }
+            settingsSshImport.setOnClickListener { onClickSshImport() }
+            buttonUpSpace.setOnTouchListener(onTouchListener)
+            buttonDownSpace.setOnTouchListener(onTouchListener)
+            buttonSelectLocationBack.setOnClickListener {
+                onButtonSelectLocationBack()
+            }
         }
         username = prefs.getString("username", "")!!
 
         binding.animator.displayedChildId = R.id.layout_progress
 
         refreshStatus()
+    }
+
+    private fun onButtonSelectLocationBack() {
+        displayStatus(false)
     }
 
     override fun finish() {
@@ -443,6 +499,7 @@ class StatusActivity : Activity() {
     }
 
     private fun onDoorUnlockStatusEvent(errorRes: Int?) {
+        resetSelectLocationView()
         if (errorRes == null) {
             val fadeInAnim = AnimationUtils.loadAnimation(this, R.anim.holding_fade_in)
 
@@ -467,6 +524,12 @@ class StatusActivity : Activity() {
             binding.textUnlockError.text = getText(errorRes)
             binding.animator.displayedChildId = R.id.layout_unlock_error
         }
+    }
+
+    private fun resetSelectLocationView() {
+        binding.statusUnlockProgress.visibility = View.GONE
+        binding.textSelectLocation.clearAnimation()
+        binding.textSelectLocation.visibility = View.VISIBLE
     }
 
     private fun onClickRefresh() {
