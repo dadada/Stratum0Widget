@@ -1,5 +1,5 @@
 [versions]
-agp = "8.7.0"
+agp = "8.7.3"
 bcprovJdk15on = "1.64"
 firebaseMessaging = "24.1.1"
 kotlin = "1.9.24"
