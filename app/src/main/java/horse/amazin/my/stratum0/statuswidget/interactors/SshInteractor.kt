@@ -20,15 +20,21 @@ import java.util.Collections.singletonList
 
 
 class SshInteractor {
-    fun performSshLogin(sshPrivateKey: String, sshPassword: String, user: String): Int? {
+    fun performSshLogin(sshPrivateKey: String, sshPassword: String?, user: String): Int? {
         val server = if (BuildConfig.DEBUG) "192.168.178.21" else "basilisk"
 
         val sshClient = SSHClient()
 
         sshClient.connectTimeout = 3000
 
+        val passwordFinder = if (sshPassword != null)  {
+            PasswordUtils.createOneOff(sshPassword.toCharArray())
+        } else {
+            null
+        }
+
         val keys = try {
-            sshClient.loadKeys(sshPrivateKey, null, PasswordUtils.createOneOff(sshPassword.toCharArray()))
+            sshClient.loadKeys(sshPrivateKey, null, passwordFinder)
         } catch (e: IOException) {
             Timber.e(e, "Failed loading identity!")
             return R.string.ssh_error_identity
@@ -40,7 +46,7 @@ class SshInteractor {
             override fun verify(hostname: String?, port: Int, key: PublicKey?): Boolean = true
 
             override fun findExistingAlgorithms(hostname: String?, port: Int): MutableList<String> =
-                singletonList(keys.public.algorithm)
+                emptyList<String>().toMutableList()
         })
 
         Timber.d("Trying to connect...")
