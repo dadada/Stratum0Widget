@@ -12,6 +12,7 @@ class Stratum0WidgetApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        // The default provider has BC disabled
         Security.removeProvider("BC")
         Security.insertProviderAt(org.bouncycastle.jce.provider.BouncyCastleProvider(), 0)
 

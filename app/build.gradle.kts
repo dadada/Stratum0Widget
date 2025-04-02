@@ -58,6 +58,10 @@ android {
         jvmTarget = "1.8"
     }
     packaging {
+        resources {
+            // bcprov
+            excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+        }
     }
 }
 
@@ -70,11 +74,11 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
 
     implementation(libs.okhttp)
-    implementation(libs.bcprov.jdk15on)
     implementation(libs.sshj)
     implementation(libs.timber)
     implementation(libs.paperparcel)
     implementation(libs.paperparcel.kotlin)
+    implementation(libs.bcprov.jdk18on)
     "kapt"(libs.paperparcel.compiler)
     "fcmImplementation"(libs.firebase.messaging)
 }

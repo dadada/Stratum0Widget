@@ -6,6 +6,7 @@ import horse.amazin.my.stratum0.statuswidget.R
 import net.schmizz.sshj.SSHClient
 import net.schmizz.sshj.common.DisconnectReason
 import net.schmizz.sshj.transport.TransportException
+import net.schmizz.sshj.transport.verification.HostKeyVerifier
 import net.schmizz.sshj.userauth.UserAuthException
 import net.schmizz.sshj.userauth.password.PasswordUtils
 import okhttp3.internal.closeQuietly
@@ -14,6 +15,8 @@ import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.security.PublicKey
+import java.util.Collections.singletonList
 
 
 class SshInteractor {
@@ -22,9 +25,6 @@ class SshInteractor {
 
         val sshClient = SSHClient()
 
-        // Accept all clients. Security reasoning: The only thing a MitM-attacker could do here is
-        // open the door on a network where the user doesn't expect the mechanism to work.
-        sshClient.addHostKeyVerifier { _, _, _ -> true }
         sshClient.connectTimeout = 3000
 
         val keys = try {
@@ -33,6 +33,15 @@ class SshInteractor {
             Timber.e(e, "Failed loading identity!")
             return R.string.ssh_error_identity
         }
+
+        // Accept all clients. Security reasoning: The only thing a MitM-attacker could do here is
+        // open the door on a network where the user doesn't expect the mechanism to work.
+        sshClient.addHostKeyVerifier(object : HostKeyVerifier {
+            override fun verify(hostname: String?, port: Int, key: PublicKey?): Boolean = true
+
+            override fun findExistingAlgorithms(hostname: String?, port: Int): MutableList<String> =
+                singletonList(keys.public.algorithm)
+        })
 
         Timber.d("Trying to connect...")
 
