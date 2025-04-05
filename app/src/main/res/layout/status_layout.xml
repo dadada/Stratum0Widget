@@ -545,18 +545,11 @@
                 android:padding="8dp">
 
                 <TextView
-                    android:id="@+id/button_up_space"
+                    android:id="@+id/button_select_location_back"
                     style="?android:buttonBarButtonStyle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text = "@string/button_upper_text" />
-
-                <TextView
-                    android:id="@+id/button_down_space"
-                    style="?android:buttonBarButtonStyle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text = "@string/button_lower_text" />
+                    android:text="@string/button_back" />
 
                 <View
                     android:layout_width="0dp"

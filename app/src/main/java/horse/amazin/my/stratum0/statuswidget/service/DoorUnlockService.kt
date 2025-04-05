@@ -75,8 +75,8 @@ class DoorUnlockService : IntentService("Space Door Service") {
     private fun findHostForLocation(location: String?): String =
         if (BuildConfig.DEBUG) "192.168.178.21" else {
             when(location) {
-                UPPER_LOCATION -> "" // TODO host to be determined yet
-                LOWER_LOCATION -> "basilisk"
+                UPPER_LOCATION -> "192.168.178.5" // TODO host to be determined yet
+                LOWER_LOCATION -> "192.168.178.6"
                 else -> "basilisk"
             }
         }
