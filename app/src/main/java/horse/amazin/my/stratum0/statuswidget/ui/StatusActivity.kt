@@ -165,7 +165,7 @@ class StatusActivity : Activity() {
                             displayStatus(true)
                         }
                         ButtonActionType.UNLOCK -> if (location != null) {
-                            performDoorLockOperation(location)
+                            performDoorUnlockOperation(location)
                         } else {
                             resetSelectLocationView()
                             displayStatus(true)

@@ -34,13 +34,18 @@ class DoorUnlockService : IntentService("Space Door Service") {
 
         val location = intent.extras?.getString(EXTRA_LOCATION)
 
+        if (location == null) {
+            Timber.e("Did not select a location, refusing operation.")
+            return
+        }
+
         when (intent.action) {
             ACTION_LOCK -> sshLoginOperation("zu", location)
             ACTION_UNLOCK -> sshLoginOperation("auf", location)
         }
     }
 
-    private fun sshLoginOperation(sshUser: String, location: String?) {
+    private fun sshLoginOperation(sshUser: String, location: String) {
         val server = findHostForLocation(location)
         val startRealtime = SystemClock.elapsedRealtime()
 
@@ -72,7 +77,7 @@ class DoorUnlockService : IntentService("Space Door Service") {
         }
     }
 
-    private fun findHostForLocation(location: String?): String =
+    private fun findHostForLocation(location: String): String =
         if (BuildConfig.DEBUG) "192.168.178.21" else {
             when(location) {
                 UPPER_LOCATION -> "192.168.178.29"
@@ -131,8 +136,8 @@ class DoorUnlockService : IntentService("Space Door Service") {
             intent: Intent
         ) {
             when (location) {
-                Location.UPPER -> intent.extras?.putString(EXTRA_LOCATION, UPPER_LOCATION)
-                Location.LOWER -> intent.extras?.putString(EXTRA_LOCATION, LOWER_LOCATION)
+                Location.UPPER -> intent.putExtra(EXTRA_LOCATION, UPPER_LOCATION)
+                Location.LOWER -> intent.putExtra(EXTRA_LOCATION, LOWER_LOCATION)
             }
         }
     }
