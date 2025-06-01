@@ -98,8 +98,7 @@
                         android:layout_height="wrap_content"
                         android:layout_gravity="center"
                         android:contentDescription="@string/status_icon_description"
-                        android:src="@drawable/ic_stratum0_cutout"
-                        />
+                        android:src="@drawable/ic_stratum0_cutout" />
 
                 </FrameLayout>
 
@@ -557,14 +556,14 @@
                     android:layout_weight="1" />
 
                 <TextView
-                    android:id="@+id/button_down_space"
+                    android:id="@+id/button_space2"
                     style="?android:buttonBarButtonStyle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/button_lower_text" />
 
                 <TextView
-                    android:id="@+id/button_up_space"
+                    android:id="@+id/button_space3"
                     style="?android:buttonBarButtonStyle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"

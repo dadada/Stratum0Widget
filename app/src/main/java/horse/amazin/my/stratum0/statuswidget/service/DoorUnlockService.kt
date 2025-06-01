@@ -7,15 +7,12 @@ import android.os.SystemClock
 import androidx.annotation.StringRes
 import horse.amazin.my.stratum0.statuswidget.BuildConfig
 import horse.amazin.my.stratum0.statuswidget.R
+import horse.amazin.my.stratum0.statuswidget.SpaceLocation
 import horse.amazin.my.stratum0.statuswidget.interactors.SshInteractor
 import horse.amazin.my.stratum0.statuswidget.interactors.SshKeyStorage
-import horse.amazin.my.stratum0.statuswidget.ui.StatusActivity.Location
 import timber.log.Timber
 
 private const val EXTRA_LOCATION = "location"
-
-const val UPPER_LOCATION = "upper"
-const val LOWER_LOCATION = "lower"
 
 class DoorUnlockService : IntentService("Space Door Service") {
     private lateinit var sshKeyStorage: SshKeyStorage
@@ -32,7 +29,7 @@ class DoorUnlockService : IntentService("Space Door Service") {
             return
         }
 
-        val location = intent.extras?.getString(EXTRA_LOCATION)
+        val location = intent.extras?.getSerializable(EXTRA_LOCATION) as? SpaceLocation
 
         if (location == null) {
             Timber.e("Did not select a location, refusing operation.")
@@ -45,7 +42,7 @@ class DoorUnlockService : IntentService("Space Door Service") {
         }
     }
 
-    private fun sshLoginOperation(sshUser: String, location: String) {
+    private fun sshLoginOperation(sshUser: String, location: SpaceLocation) {
         val server = findHostForLocation(location)
         val startRealtime = SystemClock.elapsedRealtime()
 
@@ -77,14 +74,8 @@ class DoorUnlockService : IntentService("Space Door Service") {
         }
     }
 
-    private fun findHostForLocation(location: String): String =
-        if (BuildConfig.DEBUG) "192.168.178.21" else {
-            when(location) {
-                UPPER_LOCATION -> "192.168.178.29"
-                LOWER_LOCATION -> "192.168.178.6"
-                else -> "basilisk"
-            }
-        }
+    private fun findHostForLocation(location: SpaceLocation): String =
+        if (BuildConfig.DEBUG) "192.168.178.21" else location.doorOpenerIp
 
     private fun sendUnlockStatusBroadcastError(@StringRes errResId: Int) {
         sendUnlockStatusBroadcast(false, errResId)
@@ -115,30 +106,20 @@ class DoorUnlockService : IntentService("Space Door Service") {
 
         const val MIN_UNLOCK_MS = 500L
 
-        fun triggerDoorLock(context: Context, location: Location) {
+        fun triggerDoorLock(context: Context, location: SpaceLocation) {
             val intent = Intent(context, DoorUnlockService::class.java)
             intent.`package` = BuildConfig.APPLICATION_ID
             intent.action = ACTION_LOCK
-            putLocationExtra(location, intent)
+            intent.putExtra(EXTRA_LOCATION, location)
             context.startService(intent)
         }
 
-        fun triggerDoorUnlock(context: Context, location: Location) {
+        fun triggerDoorUnlock(context: Context, location: SpaceLocation) {
             val intent = Intent(context, DoorUnlockService::class.java)
             intent.`package` = BuildConfig.APPLICATION_ID
             intent.action = ACTION_UNLOCK
-            putLocationExtra(location, intent)
+            intent.putExtra(EXTRA_LOCATION, location)
             context.startService(intent)
-        }
-
-        private fun putLocationExtra(
-            location: Location,
-            intent: Intent
-        ) {
-            when (location) {
-                Location.UPPER -> intent.putExtra(EXTRA_LOCATION, UPPER_LOCATION)
-                Location.LOWER -> intent.putExtra(EXTRA_LOCATION, LOWER_LOCATION)
-            }
         }
     }
 

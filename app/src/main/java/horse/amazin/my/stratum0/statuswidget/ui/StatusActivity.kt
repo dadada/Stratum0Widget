@@ -2,9 +2,19 @@ package horse.amazin.my.stratum0.statuswidget.ui
 
 
 import android.app.Activity
-import android.content.*
+import android.content.BroadcastReceiver
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.SharedPreferences
 import android.net.Uri
-import android.os.*
+import android.os.AsyncTask
+import android.os.Build
+import android.os.Bundle
+import android.os.Handler
+import android.os.SystemClock
 import android.text.format.DateUtils
 import android.view.MotionEvent
 import android.view.View
@@ -15,6 +25,7 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
 import androidx.annotation.ColorRes
 import horse.amazin.my.stratum0.statuswidget.R
+import horse.amazin.my.stratum0.statuswidget.SpaceLocation
 import horse.amazin.my.stratum0.statuswidget.SpaceStatus
 import horse.amazin.my.stratum0.statuswidget.SpaceStatusData
 import horse.amazin.my.stratum0.statuswidget.databinding.StatusLayoutBinding
@@ -22,10 +33,8 @@ import horse.amazin.my.stratum0.statuswidget.interactors.S0PermissionManager
 import horse.amazin.my.stratum0.statuswidget.interactors.SshKeyStorage
 import horse.amazin.my.stratum0.statuswidget.interactors.StatusFetcher
 import horse.amazin.my.stratum0.statuswidget.service.DoorUnlockService
-import horse.amazin.my.stratum0.statuswidget.service.LOWER_LOCATION
 import horse.amazin.my.stratum0.statuswidget.service.StatusChangerService
 import horse.amazin.my.stratum0.statuswidget.service.Stratum0WidgetProvider
-import horse.amazin.my.stratum0.statuswidget.service.UPPER_LOCATION
 import java.lang.ref.WeakReference
 
 
@@ -84,12 +93,7 @@ class StatusActivity : Activity() {
             binding.animator.displayedChildId = R.id.layout_never_in_space
         } else {
             val action = when (pressedButtonId) {
-                R.id.button_up_space -> if (unlockAction) {
-                    ButtonActionType.UNLOCK
-                } else {
-                    ButtonActionType.LOCK
-                }
-                R.id.button_down_space -> if (unlockAction) {
+                R.id.button_space2, R.id.button_space3 -> if (unlockAction) {
                     ButtonActionType.UNLOCK
                 } else {
                     ButtonActionType.LOCK
@@ -102,8 +106,8 @@ class StatusActivity : Activity() {
                 else -> throw java.lang.IllegalArgumentException("Unknown button!")
             }
             val location = when (pressedButtonId) {
-                R.id.button_up_space -> Location.UPPER
-                R.id.button_down_space -> Location.LOWER
+                R.id.button_space2 -> SpaceLocation.Space2
+                R.id.button_space3 -> SpaceLocation.Space3
                 else -> null
             }
             startFadeoutAnimation(action, location)
@@ -126,11 +130,6 @@ class StatusActivity : Activity() {
 
     private var lastButtonDown: Long? = null
 
-    enum class Location {
-        UPPER,
-        LOWER
-    }
-
     enum class ButtonActionType {
         LOCK, UNLOCK, OPEN, CLOSE, INHERIT;
 
@@ -138,7 +137,7 @@ class StatusActivity : Activity() {
             get() = this == LOCK || this == UNLOCK
     }
 
-    private fun startFadeoutAnimation(actionType: ButtonActionType, location: Location? = null) {
+    private fun startFadeoutAnimation(actionType: ButtonActionType, location: SpaceLocation? = null) {
         if (holdingButton || triggeredUpdate || triggeredDoorOperation) {
             return
         }
@@ -246,7 +245,7 @@ class StatusActivity : Activity() {
         binding.currentStatusTextLoading.visibility = View.VISIBLE
     }
 
-    private fun performDoorLockOperation(location: Location) {
+    private fun performDoorLockOperation(location: SpaceLocation) {
         triggeredDoorOperation = true
 
         binding.currentStatusTextLoading.text = getString(R.string.status_progress_lock)
@@ -255,7 +254,7 @@ class StatusActivity : Activity() {
         DoorUnlockService.triggerDoorLock(applicationContext, location)
     }
 
-    private fun performDoorUnlockOperation(location: Location) {
+    private fun performDoorUnlockOperation(location: SpaceLocation) {
         triggeredDoorOperation = true
 
         binding.currentStatusTextLoading.text = getString(R.string.status_progress_unlock)
@@ -304,8 +303,8 @@ class StatusActivity : Activity() {
             buttonUnlock.isEnabled = sshKeyStorage.hasKey()
             buttonLock.isEnabled = sshKeyStorage.hasKey()
             settingsSshImport.setOnClickListener { onClickSshImport() }
-            buttonUpSpace.setOnTouchListener(onTouchListener)
-            buttonDownSpace.setOnTouchListener(onTouchListener)
+            buttonSpace2.setOnTouchListener(onTouchListener)
+            buttonSpace3.setOnTouchListener(onTouchListener)
             buttonSelectLocationBack.setOnClickListener {
                 onButtonSelectLocationBack()
             }
