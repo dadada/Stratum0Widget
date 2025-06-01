@@ -21,6 +21,7 @@ import horse.amazin.my.stratum0.statuswidget.interactors.StatusFetcher
 import horse.amazin.my.stratum0.statuswidget.push.SpaceUpdateJobService
 import horse.amazin.my.stratum0.statuswidget.push.Stratum0StatusUpdater
 import horse.amazin.my.stratum0.statuswidget.ui.StatusActivity
+import java.lang.ref.WeakReference
 
 val FLAG_IMMUTABLE_COMPAT = when {
     Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> PendingIntent.FLAG_IMMUTABLE
@@ -102,20 +103,32 @@ class Stratum0WidgetProvider : AppWidgetProvider() {
     }
 
     private val stratum0StatusFetcher = StatusFetcher()
+
+    private class RefreshTask(context: Context, provider: Stratum0WidgetProvider) :
+        AsyncTask<Void, Void, SpaceStatusData>() {
+
+        private val contextReference: WeakReference<Context> = WeakReference(context)
+
+
+        private val providerReference: WeakReference<Stratum0WidgetProvider> =
+            WeakReference(provider)
+
+        override fun onPreExecute() {
+            providerReference.get()!!.showUpdatingMessage(contextReference.get()!!)
+        }
+
+        override fun doInBackground(vararg p0: Void?): SpaceStatusData {
+            return providerReference.get()!!.stratum0StatusFetcher.fetch(700)
+        }
+
+        override fun onPostExecute(result: SpaceStatusData) {
+            providerReference.get()!!.onSpaceStatusUpdated(contextReference.get()!!, result)
+        }
+    }
+
     private fun refreshStatusAsync(context: Context) {
-        object : AsyncTask<Void, Void, SpaceStatusData>() {
-            override fun onPreExecute() {
-                showUpdatingMessage(context)
-            }
 
-            override fun doInBackground(vararg p0: Void?): SpaceStatusData {
-                return stratum0StatusFetcher.fetch(700)
-            }
-
-            override fun onPostExecute(result: SpaceStatusData) {
-                onSpaceStatusUpdated(context, result)
-            }
-        }.execute()
+        RefreshTask(context, this).execute()
     }
 
     private fun showUpdatingMessage(context: Context) {
